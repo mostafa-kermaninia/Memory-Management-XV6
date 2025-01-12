@@ -6,9 +6,22 @@
 #include "mmu.h"
 #include "proc.h"
 #include "elf.h"
+#include "spinlock.h"
 
 extern char data[];  // defined by kernel.ld
 pde_t *kpgdir;  // for use in scheduler()
+
+struct shmem
+{
+  uint id;
+  char *mem;
+  uint nref;
+};
+
+struct {
+  struct spinlock lock;
+  struct shmem shmem[NSHMEM];
+} smtable;
 
 // Set up CPU's kernel segment descriptors.
 // Run once on entry on each CPU.
@@ -54,10 +67,10 @@ walkpgdir(pde_t *pgdir, const void *va, int alloc)
   return &pgtab[PTX(va)];
 }
 
-pte_t *
-walkpgdir1(pde_t *pgdir, const void *va, int alloc){
-  return walkpgdir(pgdir, va, alloc);
-}
+// pte_t *
+// walkpgdir1(pde_t *pgdir, const void *va, int alloc){
+//   return walkpgdir(pgdir, va, alloc);
+// }
 
 // Create PTEs for virtual addresses starting at va that refer to
 // physical addresses starting at pa. va and size might not
@@ -84,10 +97,10 @@ mappages(pde_t *pgdir, void *va, uint size, uint pa, int perm)
   return 0;
 }
 
-int
-mappages1(pde_t *pgdir, void *va, uint size, uint pa, int perm){
-  return mappages(pgdir, va, size, pa, perm);
-}
+// int
+// mappages1(pde_t *pgdir, void *va, uint size, uint pa, int perm){
+//   return mappages(pgdir, va, size, pa, perm);
+// }
 
 // There is one page table per process, plus one that's used when
 // a CPU is not running any process (kpgdir). The kernel uses the
@@ -402,3 +415,69 @@ copyout(pde_t *pgdir, uint va, void *p, uint len)
 //PAGEBREAK!
 // Blank page.
 
+char *
+open_sharedmem(int id){
+  struct proc *curproc = myproc();
+  pde_t *pgdir = curproc->pgdir;
+  char* sz = (char*)PGROUNDUP(curproc->sz);
+  char *mem;
+  
+  acquire(&smtable.lock);
+  for(int i = 0; i < NSHMEM; i++){
+    struct shmem *shmem = &smtable.shmem[i];
+    if(shmem->id == id){
+      if(mappages(pgdir, sz, PGSIZE, V2P(shmem->mem), PTE_W|PTE_U) < 0)
+        panic("open_sharedmem");
+      shmem->nref++;
+      curproc->sz += PGSIZE;
+      release(&smtable.lock);
+      return sz;
+    }
+  }
+
+  for(int i = 0; i < NSHMEM; i++){
+    struct shmem *shmem = &smtable.shmem[i];
+    if(shmem->id == 0){
+      shmem->id = id;
+      if((mem = kalloc()) == 0)
+        panic("open_sharedmem");
+      memset(mem, 0, PGSIZE);
+      if(mappages(pgdir, sz, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0)
+        panic("open_sharedmem");
+      shmem->mem = mem;
+      shmem->nref = 1;
+      curproc->sz += PGSIZE;
+      release(&smtable.lock);
+      return sz;
+    }
+  }
+
+  release(&smtable.lock);
+  return 0;
+}
+
+int
+close_sharedmem(int id){
+  struct proc* curproc = myproc();
+  pde_t *pgdir = curproc->pgdir;
+  char* sz = (char*)PGROUNDUP(curproc->sz);
+  pte_t *pte;
+
+  acquire(&smtable.lock);
+  for(int i = 0; i < NSHMEM; i++){
+    struct shmem *shmem = &smtable.shmem[i];
+    if(shmem->id == id){
+      pte = walkpgdir(pgdir, sz, 0);
+      *pte = 0;
+      shmem->nref--;
+      if(shmem->nref == 0){
+        shmem->id = 0;
+      }
+      release(&smtable.lock);
+      return 0;
+    }
+  }
+
+  release(&smtable.lock);
+  return -1;
+}

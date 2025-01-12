@@ -13,18 +13,6 @@ struct
   struct proc proc[NPROC];
 } ptable;
 
-struct shmem
-{
-  uint id;
-  char *mem;
-  uint nref;
-};
-
-struct {
-  struct spinlock lock;
-  struct shmem shmem[NSHMEM];
-} smtable;
-
 static struct proc *initproc;
 
 int nextpid = 1;
@@ -39,10 +27,10 @@ void pinit(void)
   initlock(&ptable.lock, "ptable");
 }
 
-void
-shmeminit(void) {
-  initlock(&smtable.lock, "shmemtable");
-}
+// void
+// shmeminit(void) {
+//   initlock(&smtable.lock, "shmemtable");
+// }
 
 // Must be called with interrupts disabled
 int cpuid()
@@ -899,71 +887,4 @@ void set_bc(int pid, int bursttime, int confidence)
     }
   }
   release(&ptable.lock);
-}
-
-char *
-open_sharedmem(int id){
-  struct proc *curproc = myproc();
-  pde_t *pgdir = curproc->pgdir;
-  char* sz = (char*)PGROUNDUP(curproc->sz);
-  char *mem;
-  
-  acquire(&smtable.lock);
-  for(int i = 0; i < NSHMEM; i++){
-    struct shmem *shmem = &smtable.shmem[i];
-    if(shmem->id == id){
-      if(mappages1(pgdir, sz, PGSIZE, V2P(shmem->mem), PTE_W|PTE_U) < 0)
-        panic("open_sharedmem");
-      shmem->nref++;
-      curproc->sz += PGSIZE;
-      release(&smtable.lock);
-      return sz;
-    }
-  }
-
-  for(int i = 0; i < NSHMEM; i++){
-    struct shmem *shmem = &smtable.shmem[i];
-    if(shmem->id == 0){
-      shmem->id = id;
-      if((mem = kalloc()) == 0)
-        panic("open_sharedmem");
-      memset(mem, 0, PGSIZE);
-      if(mappages1(pgdir, sz, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0)
-        panic("open_sharedmem");
-      shmem->mem = mem;
-      shmem->nref = 1;
-      curproc->sz += PGSIZE;
-      release(&smtable.lock);
-      return sz;
-    }
-  }
-
-  release(&smtable.lock);
-  return 0;
-}
-
-int
-close_sharedmem(int id){
-  struct proc* curproc = myproc();
-  pde_t *pgdir = curproc->pgdir;
-  char* sz = (char*)PGROUNDUP(curproc->sz);
-  pte_t *pte;
-
-  acquire(&smtable.lock);
-  for(int i = 0; i < NSHMEM; i++){
-    struct shmem *shmem = &smtable.shmem[i];
-    if(shmem->id == id){
-      pte = walkpgdir1(pgdir, sz, 0);
-      *pte = 0;
-      shmem->nref--;
-      if(shmem->nref == 0){
-        shmem->id = 0;
-      }
-      release(&smtable.lock);
-      return 0;
-    }
-  }
-
-  release(&smtable.lock);
-  return -1;
 }
