@@ -138,3 +138,15 @@ int sys_set_bc(void){
   set_bc(pid, bursttime, confidence);
   return 0;
 }
+
+char *
+sys_open_sharedmem(void){
+  char *addr;
+  int n;
+
+  if (argint(0, &n) < 0)
+    return -1;
+    
+  addr = open_sharedmem(n);
+  return addr;
+}

@@ -28,6 +28,7 @@ main(void)
   consoleinit();   // console hardware
   uartinit();      // serial port
   pinit();         // process table
+  shmeminit();     // shared memory table
   tvinit();        // trap vectors
   binit();         // buffer cache
   fileinit();      // file table

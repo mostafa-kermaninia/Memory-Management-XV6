@@ -7,8 +7,10 @@ struct proc;
 struct rtcdate;
 struct spinlock;
 struct sleeplock;
+struct reentrantlock;
 struct stat;
 struct superblock;
+
 
 // bio.c
 void            binit(void);
@@ -111,6 +113,7 @@ int             kill(int);
 struct cpu*     mycpu(void);
 struct proc*    myproc();
 void            pinit(void);
+void            shmeminit(void);
 void            procdump(void);
 void            scheduler(void) __attribute__((noreturn));
 void            sched(void);
@@ -129,6 +132,8 @@ int             get_most_invoked_syscall(int);
 void            change_queue(int, int);
 void            processes_info(void);
 void            set_bc(int, int, int);
+void            get_syscalls_num(void);
+char *          open_sharedmem(int);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -147,6 +152,11 @@ void            acquiresleep(struct sleeplock*);
 void            releasesleep(struct sleeplock*);
 int             holdingsleep(struct sleeplock*);
 void            initsleeplock(struct sleeplock*, char*);
+
+// reentrantlock.c
+void            acquirereentrant(struct reentrantlock*);
+void            releasereentrant(struct reentrantlock*);
+void            initreentrantlock(struct reentrantlock*);
 
 // string.c
 int             memcmp(const void*, const void*, uint);
@@ -173,6 +183,8 @@ void            idtinit(void);
 extern uint     ticks;
 void            tvinit(void);
 extern struct spinlock tickslock;
+extern int total_syscall;
+extern struct spinlock nsyscall_lock;
 
 // uart.c
 void            uartinit(void);
@@ -194,6 +206,7 @@ void            switchuvm(struct proc*);
 void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
+int             mappages1(pde_t *pgdir, void *va, uint size, uint pa, int perm);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

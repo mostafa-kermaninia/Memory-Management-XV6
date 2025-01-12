@@ -13,6 +13,18 @@ struct
   struct proc proc[NPROC];
 } ptable;
 
+struct shmem
+{
+  uint id;
+  char *mem;
+  uint nref;
+};
+
+struct {
+  struct spinlock lock;
+  struct shmem shmem[NSHMEM];
+} smtable;
+
 static struct proc *initproc;
 
 int nextpid = 1;
@@ -25,6 +37,14 @@ static void wakeup1(void *chan);
 void pinit(void)
 {
   initlock(&ptable.lock, "ptable");
+}
+
+void
+shmeminit(void) {
+  initlock(&smtable.lock, "shmemtable");
+  for(int i = 0; i < NSHMEM; i++)
+    if((smtable.shmem[i].mem = kalloc()) == 0)
+      panic("Error");
 }
 
 // Must be called with interrupts disabled
@@ -883,3 +903,22 @@ void set_bc(int pid, int bursttime, int confidence)
   }
   release(&ptable.lock);
 }
+
+char *
+open_sharedmem(int id){
+  struct proc *curproc = myproc();
+  pde_t *pgdir = curproc->pgdir;
+  uint sz = curproc->sz;
+  
+  char *mem = smtable.shmem[0].mem;
+
+  char* x = (char*)PGROUNDUP(sz);
+  // memset(mem, 0, PGSIZE);
+  if(mappages1(pgdir, (char*)PGROUNDUP(sz), PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
+    panic("Error");
+  }
+  curproc->sz += PGSIZE;
+  cprintf("mem: %p\n", (void*)mem);
+  return x;
+}
+

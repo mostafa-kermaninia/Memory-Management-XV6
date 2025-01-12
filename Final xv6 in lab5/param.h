@@ -12,3 +12,4 @@
 #define NBUF         (MAXOPBLOCKS*3)  // size of disk block cache
 #define FSSIZE       1000  // size of file system in blocks
 #define NSCHEDQUEUE   3  // number of scheduling queues
+#define NSHMEM       10  // maximum number of shared memories
