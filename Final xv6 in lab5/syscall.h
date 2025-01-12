@@ -29,3 +29,4 @@
 #define SYS_processes_info 28
 #define SYS_set_bc 29
 #define SYS_open_sharedmem 30
+#define SYS_close_sharedmem 31

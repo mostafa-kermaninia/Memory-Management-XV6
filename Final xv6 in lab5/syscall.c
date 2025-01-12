@@ -112,6 +112,7 @@ extern int sys_change_queue(void);
 extern int sys_processes_info(void);
 extern int sys_set_bc(void);
 extern char *sys_open_sharedmem(void);
+extern int sys_close_sharedmem(void);
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -143,7 +144,8 @@ static int (*syscalls[])(void) = {
 [SYS_change_queue] sys_change_queue,
 [SYS_processes_info] sys_processes_info,
 [SYS_set_bc] sys_set_bc,
-[SYS_open_sharedmem] sys_open_sharedmem,
+[SYS_open_sharedmem]  sys_open_sharedmem,
+[SYS_close_sharedmem] sys_close_sharedmem,
 };
 
 static char *syscall_names[] = {
@@ -177,6 +179,7 @@ static char *syscall_names[] = {
   [SYS_processes_info]        "processes_info",
   [SYS_set_bc]        "set_bc",
   [SYS_open_sharedmem]  "open_sharedmem",
+  [SYS_close_sharedmem] "close_sharedmem",
 };
 
 void

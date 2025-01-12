@@ -134,6 +134,7 @@ void            processes_info(void);
 void            set_bc(int, int, int);
 void            get_syscalls_num(void);
 char *          open_sharedmem(int);
+int             close_sharedmem(int);
 
 // swtch.S
 void            swtch(struct context**, struct context*);
@@ -207,6 +208,7 @@ void            switchkvm(void);
 int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 int             mappages1(pde_t *pgdir, void *va, uint size, uint pa, int perm);
+pte_t *         walkpgdir1(pde_t *pgdir, const void *va, int alloc);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

@@ -145,8 +145,18 @@ sys_open_sharedmem(void){
   int n;
 
   if (argint(0, &n) < 0)
-    return -1;
+    return 0;
     
   addr = open_sharedmem(n);
   return addr;
+}
+
+int
+sys_close_sharedmem(void){
+  int n;
+
+  if (argint(0, &n) < 0)
+    return -1;
+
+  return close_sharedmem(n);
 }

@@ -32,6 +32,7 @@ int change_queue(int, int);
 int processes_info(void);
 int set_bc(int, int, int);
 char *open_sharedmem(int);
+int close_sharedmem(int);
 
 
 // ulib.c
