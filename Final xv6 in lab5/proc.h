@@ -83,6 +83,7 @@ struct proc
   int arraival;                      // Attaival time
   int wait_time;                     // Wait time in a queue
   int consecutive_time;              // Num of ticks that process is running
+  char* shmem;                       // Pointer to shared memory
 };
 
 // Process memory is laid out contiguously, low addresses first:

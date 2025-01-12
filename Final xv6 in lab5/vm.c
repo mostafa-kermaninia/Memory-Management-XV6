@@ -419,19 +419,20 @@ char *
 open_sharedmem(int id){
   struct proc *curproc = myproc();
   pde_t *pgdir = curproc->pgdir;
-  char* sz = (char*)PGROUNDUP(curproc->sz);
+  char* vaddr = (char*)PGROUNDUP(curproc->sz);
   char *mem;
   
   acquire(&smtable.lock);
   for(int i = 0; i < NSHMEM; i++){
     struct shmem *shmem = &smtable.shmem[i];
     if(shmem->id == id){
-      if(mappages(pgdir, sz, PGSIZE, V2P(shmem->mem), PTE_W|PTE_U) < 0)
+      if(mappages(pgdir, vaddr, PGSIZE, V2P(shmem->mem), PTE_W|PTE_U) < 0)
         panic("open_sharedmem");
       shmem->nref++;
       curproc->sz += PGSIZE;
+      curproc->shmem = vaddr;
       release(&smtable.lock);
-      return sz;
+      return vaddr;
     }
   }
 
@@ -442,13 +443,14 @@ open_sharedmem(int id){
       if((mem = kalloc()) == 0)
         panic("open_sharedmem");
       memset(mem, 0, PGSIZE);
-      if(mappages(pgdir, sz, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0)
+      if(mappages(pgdir, vaddr, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0)
         panic("open_sharedmem");
       shmem->mem = mem;
       shmem->nref = 1;
       curproc->sz += PGSIZE;
+      curproc->shmem = vaddr;
       release(&smtable.lock);
-      return sz;
+      return vaddr;
     }
   }
 
@@ -460,14 +462,13 @@ int
 close_sharedmem(int id){
   struct proc* curproc = myproc();
   pde_t *pgdir = curproc->pgdir;
-  char* sz = (char*)PGROUNDUP(curproc->sz);
   pte_t *pte;
 
   acquire(&smtable.lock);
   for(int i = 0; i < NSHMEM; i++){
     struct shmem *shmem = &smtable.shmem[i];
     if(shmem->id == id){
-      pte = walkpgdir(pgdir, sz, 0);
+      pte = walkpgdir(pgdir, curproc->shmem, 0);
       *pte = 0;
       shmem->nref--;
       if(shmem->nref == 0){
