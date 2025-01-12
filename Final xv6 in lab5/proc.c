@@ -42,9 +42,6 @@ void pinit(void)
 void
 shmeminit(void) {
   initlock(&smtable.lock, "shmemtable");
-  for(int i = 0; i < NSHMEM; i++)
-    if((smtable.shmem[i].mem = kalloc()) == 0)
-      panic("Error");
 }
 
 // Must be called with interrupts disabled
@@ -908,17 +905,39 @@ char *
 open_sharedmem(int id){
   struct proc *curproc = myproc();
   pde_t *pgdir = curproc->pgdir;
-  uint sz = curproc->sz;
+  char* vaddr = (char*)PGROUNDUP(curproc->sz);
+  char *mem;
   
-  char *mem = smtable.shmem[0].mem;
-
-  char* x = (char*)PGROUNDUP(sz);
-  // memset(mem, 0, PGSIZE);
-  if(mappages1(pgdir, (char*)PGROUNDUP(sz), PGSIZE, V2P(mem), PTE_W|PTE_U) < 0){
-    panic("Error");
+  acquire(&smtable.lock);
+  for(int i = 0; i < NSHMEM; i++){
+    struct shmem *shmem = &smtable.shmem[i];
+    if(shmem->id == id){
+      if(mappages1(pgdir, vaddr, PGSIZE, V2P(shmem->mem), PTE_W|PTE_U) < 0)
+        panic("open_sharedmem");
+      shmem->nref++;
+      curproc->sz += PGSIZE;
+      release(&smtable.lock);
+      return vaddr;
+    }
   }
-  curproc->sz += PGSIZE;
-  cprintf("mem: %p\n", (void*)mem);
-  return x;
-}
 
+  for(int i = 0; i < NSHMEM; i++){
+    struct shmem *shmem = &smtable.shmem[i];
+    if(shmem->id == 0){
+      shmem->id = id;
+      if((mem = kalloc()) == 0)
+        panic("open_sharedmem");
+      memset(mem, 0, PGSIZE);
+      if(mappages1(pgdir, vaddr, PGSIZE, V2P(mem), PTE_W|PTE_U) < 0)
+        panic("open_sharedmem");
+      shmem->mem = mem;
+      shmem->nref = 1;
+      curproc->sz += PGSIZE;
+      release(&smtable.lock);
+      return vaddr;
+    }
+  }
+
+  release(&smtable.lock);
+  return 0;
+}

@@ -11,6 +11,7 @@ main(int argc, char *argv[])
   //   printf(1, "%s%s", argv[i], i+1 < argc ? " " : "\n");
 
   if (fork() == 0){
+    printf(1, "pid: %d\n", getpid());
     char *addr = open_sharedmem(1);
     printf(1, "addr: %p\n", (void*)addr);
     addr[0] = 10;
@@ -20,6 +21,7 @@ main(int argc, char *argv[])
   }
   wait();
   if (fork() == 0){
+    printf(1, "pid: %d\n", getpid());
     char *addr = open_sharedmem(1);
     printf(1, "addr: %p\n", (void*)addr);
     printf(1, "befarma: %d\n", addr[0]);
